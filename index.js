@@ -73,7 +73,7 @@ function everyMonth(data) {
   var trainLabels = []
   for (var i = dimensions + 1, l = data.length; i < l; i++) {
     var point = []
-    for (var j = i - dimensions, l2 = i - 1; j < l2; j++) {
+    for (var j = i - dimensions - 1, l2 = i - 1; j < l2; j++) {
       point.push(data[j].closeindex)
     }
     var vol = new convnetjs.Vol(point)
@@ -83,7 +83,7 @@ function everyMonth(data) {
   }
 
   var finalPoint = []
-  for (var i = data.length - 1 - dimensions, l = data.length; i < l; i++) {
+  for (var i = data.length - dimensions - 1, l = data.length; i < l; i++) {
     finalPoint.push(data[i].closeindex)
   }
   var finalVol = new convnetjs.Vol(finalPoint)
@@ -102,7 +102,9 @@ function everyDay(data) {
       data[i].openIndex
     ])
     trainData.push(vol)
-    trainLabels.push(data[i + 1].closeindex)
+    var change = data[i + 1].closeindex - data[i].openIndex
+    var percent = Math.round(change / data[i].openIndex * 100)
+    trainLabels.push(percent)
   }
 
   var latestData = data[data.length - 1]
