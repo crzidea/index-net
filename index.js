@@ -21,7 +21,7 @@ var search = qs.stringify(query)
 
 var headers = { Authorization: `Bearer ${process.env.WMCLOUD_TOKEN}` }
 
-var pathSave = `${process.env.HOME}/index-net-${query.indexID}.json`
+var pathSave = `${process.env.HOME}/.index-net-${query.indexID}.json`
 
 fetch(`${urls.root}${urls.api}?${search}`, { headers })
 .then((res) => {
