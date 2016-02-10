@@ -4,6 +4,7 @@ var convnetjs = require('convnetjs')
 var qs = require('querystring')
 var fs = require('fs')
 
+
 var urls = {}
 urls.root = 'https://api.wmcloud.com/data/v1'
 //urls.api = '/api/market/getMktIdxdJY.json'
@@ -20,6 +21,8 @@ var search = qs.stringify(query)
 
 var headers = { Authorization: `Bearer ${process.env.WMCLOUD_TOKEN}` }
 
+var pathSave = `${process.env.HOME}/index-net-${query.indexID}.json`
+
 fetch(`${urls.root}${urls.api}?${search}`, { headers })
 .then((res) => {
   return res.json()
@@ -29,16 +32,24 @@ fetch(`${urls.root}${urls.api}?${search}`, { headers })
 
   var options = everyDay(data)
 
-  //var opts = {}; // options struct
+  var opts = {}; // options struct
   //opts.train_ratio = 0.7;
-  //opts.num_folds = 10; // number of folds to eval per candidate
+  opts.num_folds = 30; // number of folds to eval per candidate
   //opts.num_candidates = 10; // number of candidates to eval in parallel
   //opts.num_epochs = 50; // epochs to make through data per fold
   // below, train_data is a list of input Vols and train_labels is a
   // list of integer correct labels (in 0...K).
 
-  //var magicNet = new convnetjs.MagicNet(options.trainData, options.trainLabels, opts)
-  var magicNet = new convnetjs.MagicNet(options.trainData, options.trainLabels)
+  var magicNet = new convnetjs.MagicNet(options.trainData, options.trainLabels, opts)
+  //var magicNet = new convnetjs.MagicNet(options.trainData, options.trainLabels)
+  try {
+    var saved = require(pathSave)
+    magicNet.fromJSON(saved);
+    var label = magicNet.predict(options.finalVol)
+    console.log(`predict label from saved: ${label}`);
+  } catch (e) {
+    console.log('No save found')
+  }
 
   console.time('batch')
   magicNet.onFinishBatch(() => {
@@ -50,8 +61,7 @@ fetch(`${urls.root}${urls.api}?${search}`, { headers })
 
   function save() {
     var content = JSON.stringify(magicNet)
-    var path = `${process.env.HOME}/index-net-${query.indexID}.json`
-    fs.writeFile(path, content)
+    //fs.writeFile(pathSave, content)
   }
 
   var steps = 0
