@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 var fetch = require('node-fetch')
-var convnetjs = require('convnetjs')
 var qs = require('querystring')
-var fs = require('fs')
-
 
 var urls = {}
 urls.root = 'https://api.wmcloud.com/data/v1'
@@ -21,116 +18,63 @@ var search = qs.stringify(query)
 
 var headers = { Authorization: `Bearer ${process.env.WMCLOUD_TOKEN}` }
 
-var pathSave = `${process.env.HOME}/.index-net-${query.indexID}.json`
+exports.pathSave = `${process.env.HOME}/.index-net-${query.indexID}.json`
 
-fetch(`${urls.root}${urls.api}?${search}`, { headers })
-.then((res) => {
-  return res.json()
-})
-.then((body) => {
-  var data = body.data.reverse()
-
-  var options = everyDay(data)
-
-  var opts = {}; // options struct
-  //opts.train_ratio = 0.7;
-  opts.num_folds = 30; // number of folds to eval per candidate
-  //opts.num_candidates = 10; // number of candidates to eval in parallel
-  //opts.num_epochs = 50; // epochs to make through data per fold
-  // below, train_data is a list of input Vols and train_labels is a
-  // list of integer correct labels (in 0...K).
-
-  var magicNet = new convnetjs.MagicNet(options.trainData, options.trainLabels, opts)
-  //var magicNet = new convnetjs.MagicNet(options.trainData, options.trainLabels)
-  try {
-    var saved = require(pathSave)
-    magicNet.fromJSON(saved);
-    var label = magicNet.predict(options.finalVol)
-    console.log(`predict label from saved: ${label}`);
-  } catch (e) {
-    console.log('No save found')
-  }
-
-  console.time('batch')
-  magicNet.onFinishBatch(() => {
-    save()
-    var label = magicNet.predict(options.finalVol)
-    console.log(`label: ${label}`);
-    console.timeEnd('batch')
+function fetchData() {
+  return fetch(`${urls.root}${urls.api}?${search}`, { headers })
+  .then((res) => {
+    return res.json()
   })
-
-  function save() {
-    var content = JSON.stringify(magicNet)
-    //fs.writeFile(pathSave, content)
-  }
-
-  var steps = 0
-  //console.time('step');
-  setInterval(() => {
-    //console.log(`steps: ${steps++}`);
-    //console.timeEnd('step');
-    magicNet.step()
-  }, 0)
-})
-.catch((error) => {
-  console.error(error.stack);
-});
-
-function everyMonth(data) {
-  var dimensions = 30 - 4 * 2 // data of a month
-
-  var trainData = []
-  var trainLabels = []
-  for (var i = dimensions + 1, l = data.length; i < l; i++) {
-    var point = []
-    for (var j = i - dimensions - 1, l2 = i - 1; j < l2; j++) {
-      point.push(data[j].closeindex)
-    }
-    var vol = new convnetjs.Vol(point)
-    trainData.push(vol)
-    var label = data[i].closeindex
-    trainLabels.push(label)
-  }
-
-  var finalPoint = []
-  for (var i = data.length - dimensions - 1, l = data.length; i < l; i++) {
-    finalPoint.push(data[i].closeindex)
-  }
-  var finalVol = new convnetjs.Vol(finalPoint)
-
-  return {trainData, trainLabels, finalVol}
+  .then((body) => {
+    var data = body.data.reverse()
+    return normalize(data)
+  })
+  .catch((error) => {
+    console.error(error.stack);
+  })
 }
 
-function everyDay(data) {
-  var trainData = []
-  var trainLabels = []
+var day = 24 * 3600 * 1000
+
+function normalize(data) {
+  var past = []
   for (var i = 0, l = data.length - 2; i < l; i++) {
     var date = new Date(data[i].tradeDate);
-    var vol = new convnetjs.Vol([
-      date.valueOf(),
-      data[i].preClosePrice,
-      data[i].openIndex
-    ])
-    trainData.push(vol)
+    var input = {
+      date: date.valueOf(),
+      preClosePrice: data[i].preClosePrice,
+      openIndex: data[i].openIndex,
+    }
+    //var output = {tomorrowCloseIndex: data[i + 1].closeindex}
     var change = data[i + 1].closeindex - data[i].openIndex
-    var percent = Math.round(change / data[i].openIndex * 100)
-    trainLabels.push(percent)
+    //var output = {change}
+    //var percent = Math.round(change / data[i].openIndex * 100)
+    //var output = {percent}
+    var radio = change / data[i].openIndex
+    var abs = Math.abs(radio)
+    var output = { increase: radio > 0 ? 1 : 0 }
+    for (var j = 1, stalls = 10; j <= stalls; j++) {
+      var rangeA = (j - 1) / 100
+      var rangeB = j / 100
+      output[rangeB] = (rangeA < abs && abs < rangeB) ? 1: 0
+    }
+    past.push({input, output})
   }
 
+  var future = []
+  var input = {}
   var latestData = data[data.length - 1]
   var latestDate = new Date(latestData.tradeDate)
-  var day = 24 * 3600 * 1000
-  var finalDayValue
   if (5 === latestDate.getDay()) {
-    finalDayValue = latestDate.valueOf() + day * 2 + day
+    input.date = latestDate.valueOf() + day * 2 + day
   } else {
-    finalDayValue = latestDate.valueOf() + day
+    input.date = latestDate.valueOf() + day
   }
-  var finalVol = new convnetjs.Vol([
-    finalDayValue,
-    latestData.preClosePrice,
-    latestData.openIndex
-  ])
+  input.preClosePrice = latestData.preClosePrice
+  input.openIndex = latestData.openIndex
+  future.push({input})
 
-  return {trainData, trainLabels, finalVol}
+  return {past, future}
 }
+
+exports.fetchData = fetchData
