@@ -5,30 +5,37 @@ var fs = require('fs')
 
 var net = new brain.NeuralNetwork();
 
-indexNet.fetchData()
-.then((data) => {
+indexNet.loaders.history().then((past) => {
   try {
     var saved = require(indexNet.pathSave)
     net.fromJSON(saved)
     console.log('load from saved');
-    var output = net.run(data.future[0])
-    console.log(output)
+    predict().then(() => {
+      indexNet.loaders.history()
+      .then(startTrainingLoop)
+    })
   } catch (e) {
     console.log('No save found');
+    startTrainingLoop(past)
   }
-
-  setInterval(() => trainAndSave(data), 0)
 })
 
-function trainAndSave(data) {
+
+function startTrainingLoop(past) {
   console.time('train')
-  net.train(data.past)
+  net.train(past)
   console.timeEnd('train')
-  var output = net.run(data.future[0])
-  console.log(output)
-  //console.log(`prediction: ${output.change}`);
+  predict().then(() => startTrainingLoop(past))
 
   // save
   var content = JSON.stringify(net);
   fs.writeFile(indexNet.pathSave, content)
+}
+
+function predict() {
+  return indexNet.loaders.latest()
+  .then((future) => {
+    var output = net.run(future)
+    console.log(output)
+  })
 }
