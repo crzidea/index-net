@@ -38,12 +38,16 @@ var day = 24 * 3600 * 1000
 
 function normalize(data) {
   var past = []
-  for (var i = 0, l = data.length - 2; i < l; i++) {
+  for (var i = 1, l = data.length - 2; i < l; i++) {
     var date = new Date(data[i].tradeDate);
     var input = {
       date: date.valueOf(),
       preClosePrice: data[i].preClosePrice,
       openIndex: data[i].openIndex,
+      highestIndex: data[i - 1].highestIndex,
+      lowestIndex: data[i - 1].lowestIndex,
+      turnoverValue: data[i - 1].turnoverValue,
+      turnoverVol: data[i - 1].turnoverVol
     }
     //var output = {tomorrowCloseIndex: data[i + 1].closeindex}
     var change = data[i + 1].closeindex - data[i].openIndex
@@ -72,6 +76,10 @@ function normalize(data) {
   }
   input.preClosePrice = latestData.preClosePrice
   input.openIndex = latestData.openIndex
+  input.highestIndex = data[data.length - 2].highestIndex
+  input.lowestIndex = data[data.length - 2].lowestIndex
+  input.turnoverValue = data[data.length - 2].turnoverValue
+  input.turnoverVol = data[data.length - 2].turnoverVol
   future.push({input})
 
   return {past, future}
