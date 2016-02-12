@@ -2,6 +2,7 @@
 var fetch = require('node-fetch')
 var qs = require('querystring')
 var log = require('debug')('index-net:common')
+var Hasher = require('./lib/hasher.js')
 
 // const
 var day = 24 * 3600 * 1000
@@ -62,22 +63,15 @@ history.normalize = (data) => {
       preTurnoverVol:   yesterday.turnoverVol
     }
     var input = history.shrink(source)
+    input = hashers.input.serialize(input)
+    if (!input) {
+      continue
+    }
     var tomorrowCloseIndex = history
     .shrink({closeIndex: tomorrow.closeIndex})
     .closeIndex
     var output = {tomorrowCloseIndex}
-    //var change = tomorrow.closeIndex - today.openIndex
-    //var output = {change}
-    //var percent = Math.round(change / today.openIndex * 100)
-    //var output = {percent}
-    //var ratio = change / today.openIndex
-    //var abs = Math.abs(ratio)
-    //var output = { increase: ratio > 0 }
-    //for (var j = 1, stalls = 10; j <= stalls; j++) {
-      //var rangeA = (j - 1) / 100
-      //var rangeB = j / 100
-      //output[rangeB] = (rangeA < abs && abs < rangeB)
-    //}
+    output = hashers.output.serialize(output)
     past.push({input, output})
   }
   return past
@@ -92,6 +86,7 @@ history.shrink = (source) => {
   return dist
 }
 history.expand = (source) => {
+  source = hashers.output.deserialize(source)
   var dist = {}
   var ranges = history.store.ranges
   var tomorrowCloseIndex =
@@ -133,7 +128,7 @@ function latest() {
     var data = body.data[0]
     latest.store.data = data
     latest.store.normalized = latest.normalize(data)
-    return latest
+    return latest.store.normalized
   })
 }
 latest.api = '/api/market/getTickRTSnapshot.json'
@@ -156,7 +151,7 @@ latest.normalize = (latest) => {
     preTurnoverVol:   yesterday.turnoverVol
   }
   var input = history.shrink(source)
-
+  input = hashers.input.serialize(input)
   return input
 }
 latest.explain = (source) => {
@@ -202,6 +197,10 @@ function isBusinessTime() {
   }
   return false
 }
+
+var hashers = {}
+hashers.input = new Hasher
+hashers.output = new Hasher
 
 module.exports = {
   fetchAPI,

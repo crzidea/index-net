@@ -3,12 +3,15 @@ var brain = require('brain')
 var indexNet = require('./')
 var fs = require('mz/fs')
 var log = require('debug')('index-net')
+var synaptic = require('synaptic');
 
 var net = new brain.NeuralNetwork();
+
 var errorNoSaveFound = new Error('No save found')
 var past
 indexNet.models.history().then((data) => {
   past = data
+    throw errorNoSaveFound
   try {
     var saved = require(indexNet.pathSave)
     net.fromJSON(saved)
