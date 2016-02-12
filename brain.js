@@ -44,11 +44,6 @@ function startTrainingLoop(past) {
 }
 
 function predict() {
-  if (!indexNet.isBusinessTime()) {
-    log('it is not business time')
-    return Promise.resolve()
-  }
-
   return indexNet.models.latest()
   .then((future) => {
     var output = net.run(future)

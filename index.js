@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 var fetch = require('node-fetch')
 var qs = require('querystring')
+var log = require('debug')('index-net:common')
 
 // const
 var day = 24 * 3600 * 1000
@@ -121,6 +122,8 @@ function latest() {
      ) {
     return Promise.resolve(latest.store.normalized)
   }
+  log('cache is not available')
+
   var query = {
     securityID: '000001.XSHG'
   }
