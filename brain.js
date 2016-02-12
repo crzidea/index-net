@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 var brain = require('brain')
 var indexNet = require('./')
-var fs = require('fs')
-var log = require('debug')('input-net')
+var fs = require('mz/fs')
+var log = require('debug')('index-net')
 
 var net = new brain.NeuralNetwork();
 var errorNoSaveFound = new Error('No save found')
@@ -33,11 +33,15 @@ function startTrainingLoop(past) {
   net.train(past)
   log(`trained with ${past.length} samples`)
 
+  var tasks = []
   // save
-  var content = JSON.stringify(net);
-  fs.writeFileSync(indexNet.pathSave, content)
+  if (indexNet.pathSave) {
+    var content = JSON.stringify(net);
+    tasks.push(fs.writeFile(indexNet.pathSave, content))
+  }
+  tasks.push(predict())
 
-  return predict().then(() => startTrainingLoop(past))
+  return Promise.all(tasks).then(() => startTrainingLoop(past))
 }
 
 function predict() {
