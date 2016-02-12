@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-var indexNet = require('./')
+var indexNet = require('./lib/')
 var fs = require('mz/fs')
 var log = require('debug')('index-net')
 var synaptic = require('synaptic');
@@ -12,7 +12,7 @@ var errorNoSaveFound = new Error('No save found')
 indexNet.models.history().then((data) => {
   past = data
   try {
-    var saved = require(indexNet.pathSave)
+    var saved = require(indexNet.common.pathSave)
     net = synaptic.Network.fromJSON(saved)
     net.trainer = new synaptic.Trainer(net)
   } catch (e) {
@@ -42,9 +42,9 @@ function startTrainingLoop(past) {
 
   var tasks = []
   // save
-  if (indexNet.pathSave) {
+  if (indexNet.common.pathSave) {
     var content = JSON.stringify(net);
-    tasks.push(fs.writeFile(indexNet.pathSave, content))
+    tasks.push(fs.writeFile(indexNet.common.pathSave, content))
   }
   tasks.push(predict())
 
