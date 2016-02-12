@@ -127,7 +127,9 @@ function latest() {
   var search = qs.stringify(query)
   return fetchAPI(latest.api, search)
   .then((body) => {
-    latest.store.normalized = latest.normalize(body.data[0])
+    var data = body.data[0]
+    latest.store.data = data
+    latest.store.normalized = latest.normalize(data)
     return latest
   })
 }
@@ -155,7 +157,9 @@ latest.normalize = (latest) => {
   return input
 }
 latest.explain = (source) => {
-
+  var currentIndex = latest.store.data.lastPrice
+  var increased = (source.tomorrowCloseIndex - currentIndex) / currentIndex
+  return {currentIndex, increased}
 }
 
 var loaders = {history, latest}

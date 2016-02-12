@@ -15,7 +15,6 @@ indexNet.loaders.history().then((data) => {
   } catch (e) {
     throw errorNoSaveFound
   }
-    throw errorNoSaveFound
   log('load from saved');
   return predict()
 })
@@ -55,5 +54,7 @@ function predict() {
     var output = net.run(future)
     var index = indexNet.loaders.history.expand(output)
     log(index)
+    var explaination = indexNet.loaders.latest.explain(index)
+    log(explaination)
   })
 }
