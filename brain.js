@@ -2,55 +2,54 @@
 var brain = require('brain')
 var indexNet = require('./')
 var fs = require('fs')
+var log = require('debug')('input-net')
 
 var net = new brain.NeuralNetwork();
-
-indexNet.loaders.history().then((past) => {
+var errorNoSaveFound = new Error('No save found')
+var past
+indexNet.loaders.history().then((data) => {
+  past = data
   try {
     var saved = require(indexNet.pathSave)
     net.fromJSON(saved)
-    console.log('load from saved');
-    predict().then(() => {
-      indexNet.loaders.history()
-      .then(startTrainingLoop)
-    })
   } catch (e) {
-    console.log('No save found');
-    startTrainingLoop(past)
+    throw errorNoSaveFound
   }
+    throw errorNoSaveFound
+  log('load from saved');
+  return predict()
 })
+.catch((error) => {
+  if (errorNoSaveFound === error) {
+    return log('no save found');
+  }
+  throw error
+})
+.then(() => startTrainingLoop(past))
+.catch((error) => log(error.stack))
 
 
 function startTrainingLoop(past) {
-  console.time('train')
   net.train(past)
-  console.timeEnd('train')
-  predict().then(() => startTrainingLoop(past))
+  log(`trained with ${past.length} samples`)
 
   // save
   var content = JSON.stringify(net);
-  fs.writeFile(indexNet.pathSave, content)
+  fs.writeFileSync(indexNet.pathSave, content)
+
+  return predict().then(() => startTrainingLoop(past))
 }
 
 function predict() {
-  if (isBusyTime()) {
+  if (!indexNet.isBusinessTime()) {
+    log('it is not business time')
     return Promise.resolve()
   }
 
   return indexNet.loaders.latest()
   .then((future) => {
     var output = net.run(future)
-    console.log(output)
+    var index = indexNet.loaders.history.expand(output)
+    log(index)
   })
-}
-
-function isBusyTime() {
-  var now = new Date
-  var day = now.getDay()
-  var hours = now.getHours()
-  if (1 <= day && day <= 5 &&
-      10 <= hours && hours <= 15) {
-    return true
-  }
-  return false
 }

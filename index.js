@@ -15,21 +15,42 @@ function history() {
   var search = qs.stringify(query)
   return fetchAPI(history.api, search)
   .then((body) => {
-    //var data = body.data.reverse()
-    history.store = body.data
+    history.store.data = body.data
     return history.normalize(body.data)
   })
 }
 history.api = '/api/market/getMktIdxd.json'
-history.normalize = (history) => {
+history.store = {}
+history.normalize = (data) => {
+  for (var i = 0, l = data.length; i < l; i++) {
+    var v = data[i];
+    v.date = (new Date(v.tradeDate)).valueOf()
+  }
+  history.store.ranges = getRanges(
+    data,
+    {
+      date:             'date',
+      openIndex:        'openIndex',
+      closeIndex:       'closeIndex',
+      preOpenIndex:     'openIndex',
+      preCloseIndex:    'closeIndex',
+      preHighestIndex:  'highestIndex',
+      preLowestIndex:   'lowestIndex',
+      preTurnoverValue: 'turnoverValue',
+      preTurnoverVol:   'turnoverVol'
+    }
+  )
+  var ranges = history.store.ranges
+  ranges.date.max = history.nextDate().valueOf()
+  ranges.date.size = ranges.date.max - ranges.date.min
+
   var past = []
-  for (var i = 1, l = history.length - 2; i < l; i++) {
-    var yesterday = history[i - 1]
-    var today     = history[i]
-    var tormorrow = history[i + 1]
-    var date = new Date(tormorrow.tradeDate)
-    var input = {
-      date:             new Date(tormorrow.tradeDate).valueOf(),
+  for (var i = 1, l = data.length - 2; i < l; i++) {
+    var yesterday = data[i - 1]
+    var today     = data[i]
+    var tomorrow  = data[i + 1]
+    var source = {
+      date:             tomorrow.date,
       openIndex:        today.openIndex,
       closeIndex:       today.closeIndex,
       preOpenIndex:     yesterday.openIndex,
@@ -39,51 +60,87 @@ history.normalize = (history) => {
       preTurnoverValue: yesterday.turnoverValue,
       preTurnoverVol:   yesterday.turnoverVol
     }
-    //var output = {tomorrowCloseIndex: history[i + 1].closeindex}
-    var change = tormorrow.closeIndex - today.openIndex
+    var input = history.shrink(source)
+    var tomorrowCloseIndex = history
+    .shrink({closeIndex: tomorrow.closeIndex})
+    .closeIndex
+    var output = {tomorrowCloseIndex}
+    //var change = tomorrow.closeIndex - today.openIndex
     //var output = {change}
     //var percent = Math.round(change / today.openIndex * 100)
     //var output = {percent}
-    var ratio = change / today.openIndex
-    var abs = Math.abs(ratio)
-    var output = { increase: ratio > 0 }
-    for (var j = 1, stalls = 10; j <= stalls; j++) {
-      var rangeA = (j - 1) / 100
-      var rangeB = j / 100
-      output[rangeB] = (rangeA < abs && abs < rangeB)
-    }
+    //var ratio = change / today.openIndex
+    //var abs = Math.abs(ratio)
+    //var output = { increase: ratio > 0 }
+    //for (var j = 1, stalls = 10; j <= stalls; j++) {
+      //var rangeA = (j - 1) / 100
+      //var rangeB = j / 100
+      //output[rangeB] = (rangeA < abs && abs < rangeB)
+    //}
     past.push({input, output})
   }
   return past
 }
-history.store = null
-
-function latest() {
-  var query = {
-    securityID: '000001.XSHG'
-  }
-  var search = qs.stringify(query)
-  return fetchAPI(latest.api, search)
-  .then((body) => {
-    //var data = body.data.reverse()
-    return latest.normalize(body.data[0])
+history.shrink = (source) => {
+  var dist = {}
+  Object.keys(source).forEach((key) => {
+    var range = history.store.ranges[key]
+    var ratio = (source[key] - range.min) / range.size
+    dist[key] = ratio
   })
-  .catch((error) => {
-    console.log(error);
-  })
+  return dist
 }
-latest.api = '/api/market/getTickRTSnapshot.json'
-latest.normalize = (latest) => {
-  var latestDate = new Date(latest.dataDate)
+history.expand = (source) => {
+  var dist = {}
+  var ranges = history.store.ranges
+  var tomorrowCloseIndex =
+    source.tomorrowCloseIndex * ranges.closeIndex.size +
+    ranges.closeIndex.min
+  return {tomorrowCloseIndex}
+}
+history.nextDate = (latest) => {
+  var latestDate = new Date(history.latest().date + day)
   var nextDate
   if (5 === latestDate.getDay()) {
     nextDate = latestDate.valueOf() + day * 2 + day
   } else {
     nextDate = latestDate.valueOf() + day
   }
-  var yesterday = history.store[history.store.length - 1]
-  var input = {
-    date:             nextDate.valueOf(),
+  return nextDate
+}
+history.latest = () => {
+  var data = history.store.data
+  return data[data.length - 1]
+}
+
+function latest() {
+  if (latest.store.normalized &&
+      (!isBusinessTime() ||
+       !latest.shouldCacheUpdate()
+      )
+     ) {
+    return Promise.resolve(latest.store.normalized)
+  }
+  var query = {
+    securityID: '000001.XSHG'
+  }
+  var search = qs.stringify(query)
+  return fetchAPI(latest.api, search)
+  .then((body) => {
+    latest.store.normalized = latest.normalize(body.data[0])
+    return latest
+  })
+}
+latest.api = '/api/market/getTickRTSnapshot.json'
+latest.store = {}
+latest.cacheInterval = 10 * 60 * 1000 // 10 minutes
+latest.shouldCacheUpdate = () => {
+  return Date.now() - latest.store.updatedAt > latest.cacheInterval
+}
+latest.normalize = (latest) => {
+  var yesterday = history.latest()
+  var source = {
+    date:             history.store.ranges.date.max,
     openIndex:        latest.openPrice,
     closeIndex:       latest.lastPrice,
     preOpenIndex:     yesterday.openIndex,
@@ -93,8 +150,12 @@ latest.normalize = (latest) => {
     preTurnoverValue: yesterday.turnoverValue,
     preTurnoverVol:   yesterday.turnoverVol
   }
+  var input = history.shrink(source)
 
-  return {input}
+  return input
+}
+latest.explain = (source) => {
+
 }
 
 var loaders = {history, latest}
@@ -106,8 +167,38 @@ function fetchAPI(api, search) {
 fetchAPI.root = 'https://api.wmcloud.com/data/v1'
 fetchAPI.headers = { Authorization: `Bearer ${process.env.WMCLOUD_TOKEN}` }
 
+function getRanges(rows, map) {
+  var lefts = Object.keys(map)
+  var ranges = {}
+  for (var i = 0, l = lefts.length; i < l; i++) {
+    var left = lefts[i]
+    var right = map[left]
+    var column = rows.map((row) => row[right])
+    .filter(value => undefined !== value)
+    var range = {
+      max: Math.max(...column),
+      min: Math.min(...column)
+    }
+    range.size = range.max - range.min
+    ranges[left] = range
+  }
+  return ranges
+}
+
+function isBusinessTime() {
+  var now = new Date
+  var day = now.getDay()
+  var hours = now.getHours()
+  if (1 <= day && day <= 5 &&
+      10 <= hours && hours <= 15) {
+    return true
+  }
+  return false
+}
+
 module.exports = {
   fetchAPI,
   loaders,
-  pathSave
+  pathSave,
+  isBusinessTime
 }
