@@ -158,11 +158,11 @@ latest.normalize = (latest) => {
 }
 latest.explain = (source) => {
   var currentIndex = latest.store.data.lastPrice
-  var increased = (source.tomorrowCloseIndex - currentIndex) / currentIndex
-  return {currentIndex, increased}
+  var ratioIncreased = (source.tomorrowCloseIndex - currentIndex) / currentIndex
+  return {currentIndex, ratioIncreased}
 }
 
-var loaders = {history, latest}
+var models = {history, latest}
 
 function fetchAPI(api, search) {
   return fetch(`${fetchAPI.root}${api}?${search}`, {headers: fetchAPI.headers})
@@ -202,7 +202,7 @@ function isBusinessTime() {
 
 module.exports = {
   fetchAPI,
-  loaders,
+  models,
   pathSave,
   isBusinessTime
 }

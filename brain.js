@@ -7,7 +7,7 @@ var log = require('debug')('index-net')
 var net = new brain.NeuralNetwork();
 var errorNoSaveFound = new Error('No save found')
 var past
-indexNet.loaders.history().then((data) => {
+indexNet.models.history().then((data) => {
   past = data
   try {
     var saved = require(indexNet.pathSave)
@@ -49,12 +49,12 @@ function predict() {
     return Promise.resolve()
   }
 
-  return indexNet.loaders.latest()
+  return indexNet.models.latest()
   .then((future) => {
     var output = net.run(future)
-    var index = indexNet.loaders.history.expand(output)
+    var index = indexNet.models.history.expand(output)
     log(index)
-    var explaination = indexNet.loaders.latest.explain(index)
+    var explaination = indexNet.models.latest.explain(index)
     log(explaination)
   })
 }
