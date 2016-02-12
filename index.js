@@ -64,14 +64,14 @@ history.normalize = (data) => {
     }
     var input = history.shrink(source)
     input = hashers.input.serialize(input)
-    if (!input) {
-      continue
-    }
     var tomorrowCloseIndex = history
     .shrink({closeIndex: tomorrow.closeIndex})
     .closeIndex
     var output = {tomorrowCloseIndex}
     output = hashers.output.serialize(output)
+    if (!input || !output) {
+      continue
+    }
     past.push({input, output})
   }
   return past

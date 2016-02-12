@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-var brain = require('brain')
 var indexNet = require('./')
 var fs = require('mz/fs')
 var log = require('debug')('index-net')
 var synaptic = require('synaptic');
 
-var net = new brain.NeuralNetwork();
+var net
+var past
 
 var errorNoSaveFound = new Error('No save found')
-var past
+
 indexNet.models.history().then((data) => {
   past = data
-    throw errorNoSaveFound
   try {
     var saved = require(indexNet.pathSave)
-    net.fromJSON(saved)
+    net = synaptic.Network.fromJSON(saved)
+    net.trainer = new synaptic.Trainer(net)
   } catch (e) {
     throw errorNoSaveFound
   }
@@ -23,6 +23,11 @@ indexNet.models.history().then((data) => {
 })
 .catch((error) => {
   if (errorNoSaveFound === error) {
+    net = new synaptic.Architect.LSTM(
+      past[0].input.length,
+      3, 3, 3,
+      past[0].output.length
+    );
     return log('no save found');
   }
   throw error
@@ -32,7 +37,7 @@ indexNet.models.history().then((data) => {
 
 
 function startTrainingLoop(past) {
-  net.train(past)
+  net.trainer.train(past)
   log(`trained with ${past.length} samples`)
 
   var tasks = []
@@ -49,7 +54,7 @@ function startTrainingLoop(past) {
 function predict() {
   return indexNet.models.latest()
   .then((future) => {
-    var output = net.run(future)
+    var output = net.activate(future)
     var index = indexNet.models.history.expand(output)
     log(index)
     var explaination = indexNet.models.latest.explain(index)
