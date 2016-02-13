@@ -11,6 +11,7 @@ var loopLimit
 var errorNoSaveFound = new Error('No save found')
 
 function run(options) {
+  options = options || {}
   loopLimit = options.loopLimit || Infinity
 
   return indexNet.models.history({
