@@ -33,7 +33,8 @@ function run(options) {
   .catch((error) => {
     if (errorNoSaveFound === error) {
       var args = indexNet.models.history.store.availableTickers
-      .map(() => 3)
+      //.map(() => 3)
+      .map(() => past[0].input.length)
       args.unshift(past[0].input.length)
       args.push(past[0].output.length)
       net = new synaptic.Architect.LSTM(...args);
@@ -46,7 +47,7 @@ function run(options) {
 
 var loopRan = 0
 function startTrainingLoop(past) {
-  if (loopRan++ > loopLimit) {
+  if (loopRan++ >= loopLimit) {
     return
   }
 
@@ -84,7 +85,10 @@ function predict() {
 }
 
 if (!module.parent) {
-  run().catch((error) => log(error.stack))
+  run().catch((error) => {
+    log(error.stack)
+    process.exit()
+  })
 } else {
   exports.run = run
 }

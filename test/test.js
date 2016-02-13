@@ -38,7 +38,7 @@ describe('indexNet', () => {
 
   describe('cli', () => {
     it('should be able to run', () => {
-      return cli.run({loopLimit: 1})
+      return cli.run({loopLimit: 2})
     })
   })
 
