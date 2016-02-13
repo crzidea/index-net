@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-var indexNet = require('./lib/')
+var indexNet = require('../lib/')
 var fs = require('mz/fs')
 var log = require('debug')('index-net')
 var synaptic = require('synaptic');
