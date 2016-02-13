@@ -76,6 +76,7 @@ function predict() {
       field,
       output[`${ticker}.tomorrow.${field}`]
     )
+    log(`index: ${index}`)
     var explaination = indexNet.models.latest.explain(index)
     log(explaination)
   })
