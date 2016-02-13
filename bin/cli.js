@@ -1,42 +1,54 @@
 #!/usr/bin/env node
 var indexNet = require('../lib/')
 var fs = require('mz/fs')
-var log = require('debug')('index-net')
+var log = require('debug')('index-net:cli')
 var synaptic = require('synaptic');
 
 var net
 var past
+var loopLimit
 
 var errorNoSaveFound = new Error('No save found')
 
-indexNet.models.history().then((data) => {
-  past = data
-  try {
-    var saved = require(indexNet.common.pathSave)
-    net = synaptic.Network.fromJSON(saved)
-    net.trainer = new synaptic.Trainer(net)
-  } catch (e) {
-    throw errorNoSaveFound
-  }
-  log('load from saved');
-  return predict()
-})
-.catch((error) => {
-  if (errorNoSaveFound === error) {
-    net = new synaptic.Architect.LSTM(
-      past[0].input.length,
-      3, 3, 3,
-      past[0].output.length
-    );
-    return log('no save found');
-  }
-  throw error
-})
-.then(() => startTrainingLoop(past))
-.catch((error) => log(error.stack))
+function run(options) {
+  loopLimit = options.loopLimit || Infinity
 
+  return indexNet.models.history({
+    ticker: process.env.INDEX_NET_TICKER,
+    beginDate: process.env.INDEX_NET_HISTORY_BEGIN_DATE
+  })
+  .then((data) => {
+    past = data
+    try {
+      var saved = require(indexNet.common.pathSave)
+      net = synaptic.Network.fromJSON(saved)
+      net.trainer = new synaptic.Trainer(net)
+    } catch (e) {
+      throw errorNoSaveFound
+    }
+    log('load from saved');
+    return predict()
+  })
+  .catch((error) => {
+    if (errorNoSaveFound === error) {
+      net = new synaptic.Architect.LSTM(
+        past[0].input.length,
+        3, 3, 3,
+        past[0].output.length
+      );
+      return log('no save found');
+    }
+    throw error
+  })
+  .then(() => startTrainingLoop(past))
+}
 
+var loopRan = 0
 function startTrainingLoop(past) {
+  if (loopRan++ > loopLimit) {
+    return
+  }
+
   net.trainer.train(past)
   log(`trained with ${past.length} samples`)
 
@@ -55,9 +67,22 @@ function predict() {
   return indexNet.models.latest()
   .then((future) => {
     var output = net.activate(future)
-    var index = indexNet.models.history.expand(output)
-    log(index)
+    output = indexNet.common.hashers.output.deserialize(output)
+    log(output)
+    var ticker = indexNet.models.history.options.ticker
+    var field = 'closeIndex'
+    var index = indexNet.models.history.expand(
+      ticker,
+      field,
+      output[`${ticker}.tomorrow.${field}`]
+    )
     var explaination = indexNet.models.latest.explain(index)
     log(explaination)
   })
+}
+
+if (!module.parent) {
+  run().catch((error) => log(error.stack))
+} else {
+  exports.run = run
 }
