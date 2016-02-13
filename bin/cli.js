@@ -32,11 +32,11 @@ function run(options) {
   })
   .catch((error) => {
     if (errorNoSaveFound === error) {
-      net = new synaptic.Architect.LSTM(
-        past[0].input.length,
-        3, 3, 3,
-        past[0].output.length
-      );
+      var args = indexNet.models.history.store.availableTickers
+      .map(() => 3)
+      args.unshift(past[0].input.length)
+      args.push(past[0].output.length)
+      net = new synaptic.Architect.LSTM(...args);
       return log('no save found');
     }
     throw error
