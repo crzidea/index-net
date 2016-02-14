@@ -32,9 +32,9 @@ function run(options) {
   })
   .catch((error) => {
     if (errorNoSaveFound === error) {
+      var fields = indexNet.models.history.fields
       var args = indexNet.models.history.store.availableTickers
-      //.map(() => 3)
-      .map(() => past[0].input.length)
+      .map(() => fields.today.length + fields.yesterday.length)
       args.unshift(past[0].input.length)
       args.push(past[0].output.length)
       net = new synaptic.Architect.LSTM(...args);
