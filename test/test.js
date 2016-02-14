@@ -11,11 +11,11 @@ describe('indexNet', () => {
     describe('#history()', () => {
       var history = models.history
 
-      //before('rreduce indexes.cached.length', () => {
-        //var remained = ['000001', '000002']
-        //models.indexes.cached = models.indexes.cached
-        //.filter((index) => ~remained.indexOf(index.ticker))
-      //})
+      before('rreduce indexes.cached.length', () => {
+        var remained = ['000001', '000002', 'DYCB10']
+        models.indexes.cached = models.indexes.cached
+        .filter((index) => ~remained.indexOf(index.ticker))
+      })
       it('should return data for training', () => {
         return history({beginDate: '20160101'})
         .then((past) => {
@@ -38,7 +38,7 @@ describe('indexNet', () => {
 
   describe('cli', () => {
     it('should be able to run', () => {
-      return cli.run({loopLimit: 2})
+      return cli.run({loopLimit: 2, pathSave: '/dev/null'})
     })
   })
 

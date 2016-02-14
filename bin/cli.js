@@ -7,12 +7,16 @@ var synaptic = require('synaptic');
 var net
 var past
 var loopLimit
+var pathSave
 
 var errorNoSaveFound = new Error('No save found')
 
 function run(options) {
   options = options || {}
   loopLimit = options.loopLimit || Infinity
+  pathSave = options.pathSave
+    || process.env.INDEX_NET_PATH_SAVE
+    || `${process.env.HOME}/.index-net.json`
 
   return indexNet.models.history({
     ticker: process.env.INDEX_NET_TICKER,
@@ -21,20 +25,23 @@ function run(options) {
   .then((data) => {
     past = data
     try {
-      var saved = require(indexNet.common.pathSave)
+      var saved = require(pathSave)
+      if (!saved.neurons) {
+        throw errorNoSaveFound
+      }
       net = synaptic.Network.fromJSON(saved)
       net.trainer = new synaptic.Trainer(net)
+      log('load from saved');
     } catch (e) {
       throw errorNoSaveFound
     }
-    log('load from saved');
     return predict()
   })
   .catch((error) => {
     if (errorNoSaveFound === error) {
       var fields = indexNet.models.history.fields
       var args = indexNet.models.history.store.availableTickers
-      .map(() => fields.today.length + fields.yesterday.length)
+      .map(() => fields.today.length + fields.yesterday.length + 1)
       args.unshift(past[0].input.length)
       args.push(past[0].output.length)
       net = new synaptic.Architect.LSTM(...args);
@@ -56,10 +63,8 @@ function startTrainingLoop(past) {
 
   var tasks = []
   // save
-  if (indexNet.common.pathSave) {
-    var content = JSON.stringify(net);
-    tasks.push(fs.writeFile(indexNet.common.pathSave, content))
-  }
+  var content = JSON.stringify(net);
+  tasks.push(fs.writeFile(pathSave, content))
   tasks.push(predict())
 
   return Promise.all(tasks).then(() => startTrainingLoop(past))
