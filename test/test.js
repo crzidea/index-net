@@ -4,6 +4,14 @@ var cli = require('../bin/cli.js')
 
 describe('indexNet', () => {
 
+  describe('#common', () => {
+    describe('#createHome()', () => {
+      it('should return promise', () => {
+        return indexNet.common.createHome()
+      })
+    })
+  })
+
   describe('#models', () => {
 
     var models = indexNet.models
@@ -20,6 +28,10 @@ describe('indexNet', () => {
         return history({beginDate: '20160101'})
         .then((past) => {
           assert(past instanceof Array)
+          past.forEach((training) => {
+            assert(training.input.length)
+            assert(training.output.length)
+          })
         })
       })
     })
@@ -30,6 +42,10 @@ describe('indexNet', () => {
         return latest()
         .then((future) => {
           assert(future instanceof Array)
+          future.forEach((value) => {
+            assert.notStrictEqual(value)
+            assert(0 <= value && value <= 1)
+          })
         })
       })
     })

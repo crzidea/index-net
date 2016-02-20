@@ -7,16 +7,13 @@ var synaptic = require('synaptic');
 var net
 var past
 var loopLimit
-var pathSave
 
 var errorNoSaveFound = new Error('No save found')
 
 function run(options) {
   options = options || {}
   loopLimit = options.loopLimit || Infinity
-  pathSave = options.pathSave
-    || process.env.INDEX_NET_PATH_SAVE
-    || `${process.env.HOME}/.index-net.json`
+  indexNet.options.pathSave = options.pathSave || indexNet.options.pathname
 
   return indexNet.models.history({
     ticker: process.env.INDEX_NET_TICKER,
@@ -25,7 +22,7 @@ function run(options) {
   .then((data) => {
     past = data
     try {
-      var saved = require(pathSave)
+      var saved = require(indexNet.options.pathSave)
       if (!saved.neurons) {
         throw errorNoSaveFound
       }
@@ -64,7 +61,7 @@ function startTrainingLoop(past) {
   var tasks = []
   // save
   var content = JSON.stringify(net);
-  tasks.push(fs.writeFile(pathSave, content))
+  tasks.push(fs.writeFile(indexNet.options.pathSave, content))
   tasks.push(predict())
 
   return Promise.all(tasks).then(() => startTrainingLoop(past))
