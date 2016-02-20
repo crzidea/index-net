@@ -20,7 +20,7 @@ describe('indexNet', () => {
       var history = models.history
 
       before('rreduce indexes.cached.length', () => {
-        var remained = ['000001', '000002', 'DYCB10']
+        var remained = ['000001', '000002', 'DYCB10', 'SHHKSI']
         models.indexes.cached = models.indexes.cached
         .filter((index) => ~remained.indexOf(index.ticker))
       })
