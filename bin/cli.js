@@ -5,7 +5,6 @@ var log = require('debug')('index-net:cli')
 var synaptic = require('synaptic');
 
 var net
-var past
 var loopLimit
 
 var errorNoSaveFound = new Error('No save found')
@@ -15,12 +14,13 @@ function run(options) {
   loopLimit = options.loopLimit || Infinity
   indexNet.options.pathSave = options.pathSave || indexNet.options.pathname
 
-  return indexNet.models.history({
-    ticker: process.env.INDEX_NET_TICKER,
-    beginDate: process.env.INDEX_NET_HISTORY_BEGIN_DATE
+  return indexNet.common.createHome().then(() => {
+    return indexNet.models.history({
+      ticker: process.env.INDEX_NET_TICKER,
+      beginDate: process.env.INDEX_NET_HISTORY_BEGIN_DATE
+    })
   })
   .then((data) => {
-    past = data
     try {
       var saved = require(indexNet.options.pathSave)
       if (!saved.neurons) {
@@ -37,34 +37,63 @@ function run(options) {
   .catch((error) => {
     if (errorNoSaveFound === error) {
       var fields = indexNet.models.history.fields
-      var args = indexNet.models.history.store.availableTickers
-      .map(() => fields.today.length + fields.yesterday.length + 1)
-      args.unshift(past[0].input.length)
-      args.push(past[0].output.length)
+      var args = [
+        indexNet.models.history.store.availableTickers.length,
+        fields.today.length + fields.yesterday.length + 1
+      ]
+      //var args = indexNet.models.history.store.availableTickers
+      //.map(() => fields.today.length + fields.yesterday.length + 1)
+      args.unshift(indexNet.common.hashers.input.hash.length)
+      args.push(indexNet.common.hashers.output.hash.length)
       net = new synaptic.Architect.LSTM(...args);
       return log('no save found');
     }
     throw error
   })
-  .then(() => startTrainingLoop(past))
+  .then(() => startTrainingLoop())
 }
 
 var loopRan = 0
-function startTrainingLoop(past) {
+var chunkStart = 0
+function startTrainingLoop() {
   if (loopRan++ >= loopLimit) {
     return
   }
 
-  net.trainer.train(past)
-  log(`trained with ${past.length} samples`)
+  chunkStart++
+  chunkStart %= indexNet.options.chunkSteps
+  if (!chunkStart) {
+    chunkStart = indexNet.options.chunkSteps
+  }
 
-  var tasks = []
-  // save
-  var content = JSON.stringify(net);
-  tasks.push(fs.writeFile(indexNet.options.pathSave, content))
-  tasks.push(predict())
+  var history = indexNet.models.history
+  var generator = history.chunk(chunkStart, indexNet.options.chunkSteps)
+  return new Promise((resolve, reject) => {
 
-  return Promise.all(tasks).then(() => startTrainingLoop(past))
+    function recurselyNext(current) {
+      current.value.then((data) => {
+        next = generator.next()
+        if (next.done) {
+          return resolve()
+        }
+        net.trainer.train(data)
+        log(`trained with ${data.length} samples`)
+        process.nextTick(() => recurselyNext(next))
+      })
+      .catch(reject)
+    }
+    recurselyNext(generator.next())
+
+  })
+  .then(() => {
+    var tasks = []
+    // save
+    var content = JSON.stringify(net);
+    tasks.push(fs.writeFile(indexNet.options.pathSave, content))
+    tasks.push(predict())
+
+    return Promise.all(tasks).then(() => startTrainingLoop())
+  })
 }
 
 function predict() {

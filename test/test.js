@@ -34,6 +34,25 @@ describe('indexNet', () => {
           })
         })
       })
+
+      describe('#*chunk()', () => {
+        var samples = 5
+        it(`should yield ${samples} samples`, (done) => {
+          var generator = history.chunk(1, samples)
+          function recurselyNext(current) {
+            current.value.then((data) => {
+              next = generator.next()
+              if (next.done) {
+                return done()
+              }
+              assert.equal(data.length, samples)
+              process.nextTick(() => recurselyNext(next))
+            })
+            .catch(done)
+          }
+          recurselyNext(generator.next())
+        })
+      })
     })
 
     describe('#latest()', () => {
