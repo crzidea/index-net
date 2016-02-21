@@ -14,7 +14,8 @@ function run(options) {
   loopLimit = options.loopLimit || Infinity
   indexNet.options.pathSave = options.pathSave || indexNet.options.pathname
 
-  return indexNet.common.createHome().then(() => {
+  return indexNet.common.createHome()
+  .then(() => {
     return indexNet.models.history({
       ticker: process.env.INDEX_NET_TICKER,
       beginDate: process.env.INDEX_NET_HISTORY_BEGIN_DATE
