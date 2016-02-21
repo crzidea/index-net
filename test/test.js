@@ -3,6 +3,7 @@ var indexNet = require('../lib/')
 var cli = require('../bin/cli.js')
 
 describe('indexNet', () => {
+  indexNet.options.home = `${process.env.XDG_RUNTIME_DIR}/.index-net`
 
   describe('#common', () => {
     describe('#createHome()', () => {

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+var bluebird = require('bluebird')
 var indexNet = require('../lib/')
 var fs = require('mz/fs')
 var log = require('debug')('index-net:cli')
@@ -12,7 +13,8 @@ var errorNoSaveFound = new Error('No save found')
 function run(options) {
   options = options || {}
   loopLimit = options.loopLimit || Infinity
-  indexNet.options.pathSave = options.pathSave || indexNet.options.pathname
+  indexNet.options.pathSave = options.pathSave ||
+    `${indexNet.options.home}/save.json`
 
   return indexNet.common.createHome()
   .then(() => {
@@ -51,7 +53,7 @@ function run(options) {
     }
     throw error
   })
-  .then(() => startTrainingLoop())
+  .then(startTrainingLoop)
 }
 
 var loopRan = 0
@@ -69,23 +71,17 @@ function startTrainingLoop() {
 
   var history = indexNet.models.history
   var generator = history.chunk(chunkStart, indexNet.options.chunkSteps)
-  return new Promise((resolve, reject) => {
-
-    function recurselyNext(current) {
-      current.value.then((data) => {
-        next = generator.next()
-        if (next.done) {
-          return resolve()
-        }
-        net.trainer.train(data)
-        log(`trained with ${data.length} samples`)
-        process.nextTick(() => recurselyNext(next))
-      })
-      .catch(reject)
+  return bluebird.coroutine(function*() {
+    while (true) {
+      var next = generator.next()
+      if (next.done) {
+        return
+      }
+      var data = yield next.value
+      net.trainer.train(data)
+      log(`trained with ${data.length} samples`)
     }
-    recurselyNext(generator.next())
-
-  })
+  })()
   .then(() => {
     var tasks = []
     // save
