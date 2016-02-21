@@ -27,11 +27,7 @@ describe('indexNet', () => {
       it('should return data for training', () => {
         return history({beginDate: '20160101'})
         .then((past) => {
-          assert(past instanceof Array)
-          past.forEach((training) => {
-            assert(training.input.length)
-            assert(training.output.length)
-          })
+          assert.strictEqual(past)
         })
       })
 
